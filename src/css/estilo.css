@@ -1,0 +1,91 @@
+/* Reset */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* Corpo: preto, sem scroll */
+body {
+  background: #000;
+  overflow: hidden;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  user-select: none;
+}
+
+/* Container que ocupa a tela toda */
+#tela {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+}
+
+/* Fundo em movimento — camada mais baixa */
+#fundo {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  z-index: 0;
+}
+
+/* Cada cópia do fundo ocupa a tela inteira em altura */
+.fundo-img {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+
+/* Canvas transparente sobre o fundo */
+#canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Vidas — canto superior direito, sem fundo, sem borda */
+#vidas {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 2;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* Cada coração */
+#vidas img {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+/* Game Over — centralizado, sobre tudo */
+#gameover {
+  display: none;
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  background: rgba(0, 0, 0, 0.68);
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+}
+
+#gameover.visivel { display: flex; }
+
+#gameover h1 {
+  font-size: clamp(32px, 5vw, 56px);
+  font-weight: 800;
+  color: #E24B4A;
+  letter-spacing: 0.03em;
+}
+
+#gameover small {
+  font-size: clamp(12px, 1.5vw, 16px);
+  color: rgba(255, 255, 255, 0.4);
+}

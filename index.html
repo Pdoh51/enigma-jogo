@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hook Game</title>
+  <link rel="stylesheet" href="./src/css/estilo.css">
+</head>
+<body>
+
+  <div id="tela">
+
+    <!-- Fundo em loop -->
+    <div id="fundo">
+      <img src="./src/img/espaco.webp" class="fundo-img" id="fundo1" alt="">
+      <img src="./src/img/espaco.webp" class="fundo-img" id="fundo2" alt="">
+    </div>
+
+    <!-- Vidas (engrenagens)-->
+    <div id="vidas">
+      <!-- As vidas tá no js -->
+    </div>
+
+    <!-- Canvas do jogo (transparente — fundo aparece por baixo) -->
+    <canvas id="canvas"></canvas>
+
+    <!-- Game Over (aparece por cima de tudo) -->
+    <div id="gameover">
+      <h1>GAME OVER</h1>
+      <small>Pressione Espaço para reiniciar</small>
+    </div>
+
+  </div>
+
+  <script src="./src/js/jogo.js"></script>
+</body>
+</html>
