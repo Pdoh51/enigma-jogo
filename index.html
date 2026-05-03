@@ -10,21 +10,49 @@
 
   <div id="tela">
 
-    <!-- Fundo em loop -->
+    <!-- Fundo espacial em loop — duas cópias que se alternam -->
     <div id="fundo">
       <img src="./src/img/espaco.webp" class="fundo-img" id="fundo1" alt="">
       <img src="./src/img/espaco.webp" class="fundo-img" id="fundo2" alt="">
     </div>
 
-    <!-- Vidas (engrenagens)-->
-    <div id="vidas">
-      <!-- As vidas tá no js -->
+    <!-- Personagem: máquina do tempo — posição controlada pelo JS -->
+    <img src="./src/img/maquina-tempo3.gif" id="personagem" alt="personagem">
+
+    <!-- Alvo: engrenagem que o jogador precisa capturar -->
+    <img src="./src/img/engrenagem.png" id="alvo" alt="alvo">
+
+    <!--
+      15 meteoros obstáculos declarados no HTML.
+      5 pequenos (meteoro-p) · 5 médios (meteoro-m) · 5 grandes (meteoro-g)
+      O JS posiciona cada um via style.left / style.top.
+      data-idx vincula o elemento ao obstáculo no array do JS.
+    -->
+    <div id="obstaculos">
+      <img src="./src/img/meteoro.png" class="meteoro meteoro-p" data-idx="0"  alt="">
+      <img src="./src/img/meteoro.png" class="meteoro meteoro-p" data-idx="1"  alt="">
+      <img src="./src/img/meteoro.png" class="meteoro meteoro-p" data-idx="2"  alt="">
+      <img src="./src/img/meteoro.png" class="meteoro meteoro-p" data-idx="3"  alt="">
+      <img src="./src/img/meteoro.png" class="meteoro meteoro-p" data-idx="4"  alt="">
+      <img src="./src/img/meteoro.png" class="meteoro meteoro-m" data-idx="5"  alt="">
+      <img src="./src/img/meteoro.png" class="meteoro meteoro-m" data-idx="6"  alt="">
+      <img src="./src/img/meteoro.png" class="meteoro meteoro-m" data-idx="7"  alt="">
+      <img src="./src/img/meteoro.png" class="meteoro meteoro-m" data-idx="8"  alt="">
+      <img src="./src/img/meteoro.png" class="meteoro meteoro-m" data-idx="9"  alt="">
+      <img src="./src/img/meteoro.png" class="meteoro meteoro-g" data-idx="10" alt="">
+      <img src="./src/img/meteoro.png" class="meteoro meteoro-g" data-idx="11" alt="">
+      <img src="./src/img/meteoro.png" class="meteoro meteoro-g" data-idx="12" alt="">
+      <img src="./src/img/meteoro.png" class="meteoro meteoro-g" data-idx="13" alt="">
+      <img src="./src/img/meteoro.png" class="meteoro meteoro-g" data-idx="14" alt="">
     </div>
 
-    <!-- Canvas do jogo (transparente — fundo aparece por baixo) -->
+    <!-- Vidas no canto superior direito — engrenagens verdes/vermelhas inseridas pelo JS -->
+    <div id="vidas"></div>
+
+    <!-- Canvas apenas para corda, gancho e partículas — objetos são HTML puro -->
     <canvas id="canvas"></canvas>
 
-    <!-- Game Over (aparece por cima de tudo) -->
+    <!-- Tela de game over -->
     <div id="gameover">
       <h1>GAME OVER</h1>
       <small>Pressione Espaço para reiniciar</small>

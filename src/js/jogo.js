@@ -1,204 +1,240 @@
-// ─── Canvas e contexto ───────────────────────────────────────────────────────
+// ── Canvas (apenas corda, gancho e partículas) ──────────────────────────────
 const canvas = document.getElementById('canvas');
 const ctx    = canvas.getContext('2d');
 
-// Dimensões reais do canvas = tamanho da janela
 let W = window.innerWidth;
 let H = window.innerHeight;
 canvas.width  = W;
 canvas.height = H;
 
-// Atualiza tamanho se a janela for redimensionada
 window.addEventListener('resize', () => {
   W = window.innerWidth;
   H = window.innerHeight;
   canvas.width  = W;
   canvas.height = H;
   recalcularLayout();
+  const novos = gerarDadosObstaculos();
+  obstaculos.forEach((o, i) => {
+    if (!o.vivo) return;
+    const n = novos[i];
+    o.r = n.r; o.bx = n.bx; o.by = n.by;
+    o.ampX = n.ampX; o.ampY = n.ampY;
+    o.faseX = n.faseX; o.faseY = n.faseY;
+    o.velX = n.velX; o.velY = n.velY;
+    o.dxVel = n.dxVel; o.dyVel = n.dyVel;
+    o.limEsq = n.limEsq; o.limDir = n.limDir;
+    o.limTop = n.limTop; o.limBot = n.limBot;
+  });
 });
 
-// ─── Imagens —  ──────────────────────────────
-const IMG = {
-  personagem: carregarImg('./src/img/maquina-tempo3.gif'),
-  alvo:       carregarImg('./src/img/engrenagem.png'),
-  obstaculo:  carregarImg('./src/img/meteoro.png'),
-  vidaCheia:  carregarImg('./src/img/engrenagem-verde.png'),
-  vidaVazia:  carregarImg('./src/img/engrenagem-vermelha.png'),
-};
+// ── Referências HTML ─────────────────────────────────────────────────────────
+const elPersonagem = document.getElementById('personagem');
+const elAlvo       = document.getElementById('alvo');
+const elVidas      = document.getElementById('vidas');
+const elGameover   = document.getElementById('gameover');
+const elFundo1     = document.getElementById('fundo1');
+const elFundo2     = document.getElementById('fundo2');
+const elMeteoros   = Array.from(document.querySelectorAll('.meteoro'));
 
-function carregarImg(src) {
-  const img = new Image();
-  img.src = src;
-  return img;
-}
-
-// ─── Fundo em loop ───────────────────────────────────────────────────────────
-const fundo1 = document.getElementById('fundo1');
-const fundo2  = document.getElementById('fundo2');
-const VELOCIDADE_FUNDO = 1.5; // pixels por frame
+// ── Fundo em loop ────────────────────────────────────────────────────────────
+const VEL_FUNDO = 1.5;
 let offsetFundo = 0;
-
-function iniciarFundo() {
-  const larg = W;
-  fundo1.style.width = larg + 'px';
-  fundo2.style.width = larg + 'px';
-  fundo1.style.left  = '0px';
-  fundo2.style.left  = larg + 'px';
-}
-iniciarFundo();
+elFundo1.style.left = '0px';
+elFundo2.style.left = W + 'px';
 
 function moverFundo() {
-  offsetFundo -= VELOCIDADE_FUNDO;
-  const larg = W;
-  if (offsetFundo <= -larg) offsetFundo += larg;
-  fundo1.style.left = offsetFundo + 'px';
-  fundo2.style.left = (offsetFundo + larg) + 'px';
+  offsetFundo -= VEL_FUNDO;
+  if (offsetFundo <= -W) offsetFundo += W;
+  elFundo1.style.left = offsetFundo + 'px';
+  elFundo2.style.left = (offsetFundo + W) + 'px';
 }
 
-// ─── Vidas no DOM ────────────────────────────────────────────────────────────
-const Vidas = document.getElementById('vidas');
-
+// ── Vidas ────────────────────────────────────────────────────────────────────
 function renderizarVidas(qtd) {
-  Vidas.innerHTML = '';
+  elVidas.innerHTML = '';
   for (let i = 0; i < 3; i++) {
     const img = document.createElement('img');
     img.src = i < qtd ? './src/img/engrenagem-verde.png' : './src/img/engrenagem-vermelha.png';
     img.alt = i < qtd ? 'vida' : 'sem vida';
-    Vidas.appendChild(img);
+    elVidas.appendChild(img);
   }
 }
 
-// ─── Constantes proporcionais ao tamanho da tela ─────────────────────────────
-// Tudo é calculado em função de W e H para escalar com a janela
-
+// ── Dimensões e zonas ────────────────────────────────────────────────────────
 const TOTAL_COLUNAS = 20;
-let LARG_COLUNA, CX, CY;
+let LARG_COL, CY;
 let COL_MIN, COL_MAX, COL_OBS_ESQ;
 let ZONA_X1, ZONA_X2, ZONA_W;
-let PERS_W, PERS_H, PERS_X, PERS_VEL;
+let PERS_TAM, PERS_X, PERS_VEL;
+let ALVO_TAM, ALVO_VX, AMPLITUDE_ZZ;
+const VEL_ZZ = 0.035;
 let GANCHO_VEL, RETRAIR_VEL;
-let ALVO_TAM;
-let AMPLITUDE_ZZ, VEL_ZZ, ALVO_VX;
-let MARGEM;
-let RAIO_MIN_OBS, RAIO_MAX_OBS;
+let RAIO_P, RAIO_M, RAIO_G;
 
 function recalcularLayout() {
-  LARG_COLUNA = W / TOTAL_COLUNAS;
-  CX = W / 2;
+  LARG_COL = W / TOTAL_COLUNAS;
   CY = H / 2;
-
-  COL_MIN      = 9;
-  COL_MAX      = 19;
-  COL_OBS_ESQ  = 5;
-  ZONA_X1      = COL_OBS_ESQ * LARG_COLUNA;
-  ZONA_X2      = COL_MAX     * LARG_COLUNA;
-  ZONA_W       = ZONA_X2 - ZONA_X1;
-
-  // Personagem escala com a altura
-  PERS_H    = Math.round(H * 0.14);
-  PERS_W    = PERS_H;
-  PERS_X    = Math.round(W * 0.015);
-  PERS_VEL  = Math.round(H * 0.008);
-
-  GANCHO_VEL  = Math.round(W * 0.011);
-  RETRAIR_VEL = Math.round(W * 0.009);
-
-  ALVO_TAM    = Math.round(H * 0.12);
+  COL_MIN     = 9;
+  COL_MAX     = 19;
+  COL_OBS_ESQ = 5;
+  ZONA_X1     = COL_OBS_ESQ * LARG_COL;
+  ZONA_X2     = COL_MAX     * LARG_COL;
+  ZONA_W      = ZONA_X2 - ZONA_X1;
+  PERS_TAM    = H * 0.3;
+  PERS_X      = W * 0.03;
+  PERS_VEL    = H * 0.01;
+  ALVO_TAM    = H * 0.1;
+  ALVO_VX     = W * 0.0018;
   AMPLITUDE_ZZ = H * 0.25;
-  VEL_ZZ       = 0.035;
-  ALVO_VX      = W * 0.0018;
-
-  MARGEM       = Math.round(H * 0.06);
-  RAIO_MIN_OBS = Math.round(H * 0.03);
-  RAIO_MAX_OBS = Math.round(H * 0.05);
+  GANCHO_VEL  = W * 0.011;
+  RETRAIR_VEL = W * 0.019;
+  RAIO_P = H * 0.05;
+  RAIO_M = H * 0.08;
+  RAIO_G = H * 0.11;
 }
-
 recalcularLayout();
 
-// ─── Estados do jogo ─────────────────────────────────────────────────────────
+// ── Estados ──────────────────────────────────────────────────────────────────
 const ESTADO = {
-  PARADO:    'parado',
-  LANCANDO:  'lancando',
-  RETRAINDO: 'retraindo',
-  PEGOU:     'pegou',
-  PENALIDADE:'penalidade',
-  GAMEOVER:  'gameover',
+  PARADO: 'parado', LANCANDO: 'lancando', RETRAINDO: 'retraindo',
+  PEGOU: 'pegou', PENALIDADE: 'penalidade', GAMEOVER: 'gameover',
 };
 
-// ─── Variáveis de estado ─────────────────────────────────────────────────────
-let persY      = CY - PERS_H / 2;
-let gancho     = { x: 0, y: 0 };
+let persY = CY - PERS_TAM / 2;
+let gancho = { x: 0, y: 0 };
 let estadoJogo = ESTADO.PARADO;
-let pegou      = false;
-let obsCapturado = null;
-let vidas      = 3;
-let teclas     = {};
-let particulas = [];
-let flashVermelho = 0;
+let pegou = false, obsCapturado = null;
+let vidas = 3, teclas = {}, particulas = [], flashVermelho = 0;
 
 renderizarVidas(vidas);
 
-// ─── Alvo ────────────────────────────────────────────────────────────────────
+// ── Alvo ──────────────────────────────────────────────────────────────────────
 function criarAlvo() {
-  return {
-    x: COL_MIN * LARG_COLUNA,
-    y: CY,
-    fase: 0,
-    vx: ALVO_VX,
-    capturado: false,
-  };
+  return { x: COL_MIN * LARG_COL, y: CY, fase: 0, vx: ALVO_VX, capturado: false };
 }
 let alvo = criarAlvo();
 
-// ─── Obstáculos ──────────────────────────────────────────────────────────────
-const MODOS_MOV = ['cimabaixo', 'ladolado', 'circulo'];
+// ── Geração dos obstáculos ────────────────────────────────────────────────────
+/*
+  Sistema de zonas suaves (não rígidas):
+  A zona de obstáculos é dividida em 15 regiões (5×3) apenas para garantir
+  distribuição inicial. Após posicionados, cada meteoro tem:
 
-function gerarObstaculos() {
-  const DIST_MIN = RAIO_MAX_OBS * 2 + Math.round(H * 0.08);
-  const posicionados = [];
-  let tentativas = 0;
+    - bx / by      → centro base da sua zona
+    - faseX / faseY → fases independentes nos dois eixos (movimento elíptico livre)
+    - velX / velY  → velocidades angulares diferentes por eixo (cria Lissajous)
+    - ampX / ampY  → amplitudes diferentes por eixo
+    - dxVel/dyVel  → deriva lenta do centro base (o meteoro "vaga" pela zona)
+    - limEsq/Dir/Top/Bot → zona ampliada (60% da célula em cada direção)
+      → zona maior que a versão anterior, movimentos bem mais abertos
 
-  while (posicionados.length < 15 && tentativas < 5000) {
-    tentativas++;
-    const r = RAIO_MIN_OBS + Math.floor(Math.random() * (RAIO_MAX_OBS - RAIO_MIN_OBS + 1));
-    const x = ZONA_X1 + MARGEM + r + Math.random() * (ZONA_W - MARGEM * 2 - r * 2);
-    const y = MARGEM + r + Math.random() * (H - MARGEM * 2 - r * 2);
+  Resultado: trajetórias imprevisíveis, nunca retas, sem enfileiramento.
+*/
 
-    let ok = true;
-    for (const p of posicionados) {
-      const dx = x - p.bx, dy = y - p.by;
-      if (Math.sqrt(dx * dx + dy * dy) < p.r + r + DIST_MIN) { ok = false; break; }
-    }
-    if (!ok) continue;
-
-    const i = posicionados.length;
-    posicionados.push({
-      bx: x, by: y, r,
-      modo:  MODOS_MOV[i % MODOS_MOV.length],
-      vel:   0.016 + Math.random() * 0.022,
-      amp:   r * 1.8 + Math.random() * r * 1.4,
-      fase:  Math.random() * Math.PI * 2,
-      x, y,
-      vivo: true, morrendo: false, escala: 1,
-    });
+// Embaralha array no lugar
+function embaralhar(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
   }
-  return posicionados;
+  return arr;
 }
 
-let obstaculos = gerarObstaculos();
+function raioDoTipo(tipo) {
+  if (tipo === 'p') return RAIO_P;
+  if (tipo === 'm') return RAIO_M;
+  return RAIO_G;
+}
 
-// ─── Entrada de teclado ───────────────────────────────────────────────────────
+// Distribui os tipos de forma balanceada: 5 de cada, mas embaralhados por faixa
+function tiposPorFaixa() {
+  // 3 faixas verticais, cada uma com mix equilibrado
+  const faixa0 = embaralhar(['p','m','g','p','m']);
+  const faixa1 = embaralhar(['m','g','p','g','m']);
+  const faixa2 = embaralhar(['g','p','m','g','p']);
+  return [...faixa0, ...faixa1, ...faixa2];
+}
+
+function gerarDadosObstaculos() {
+  const CELS_X = 5;
+  const CELS_Y = 3;
+  const CEL_W  = ZONA_W / CELS_X;
+  const CEL_H  = H / CELS_Y;
+
+  // Cada meteoro tem uma zona ampliada = 1.6× a célula original centrada nela
+  // Isso faz os meteoros cruzarem entre células vizinhas sem se concentrarem
+  const FATOR_ZONA = 0.75;
+
+  const tipos = tiposPorFaixa();
+  const dados = [];
+
+  for (let linha = 0; linha < CELS_Y; linha++) {
+    for (let col = 0; col < CELS_X; col++) {
+      const idx  = linha * CELS_X + col;
+      const tipo = tipos[idx];
+      const r    = raioDoTipo(tipo);
+      const pad  = r + 8;
+
+      // Centro base: posição aleatória dentro da célula com margem
+      const celEsq = ZONA_X1 + col  * CEL_W;
+      const celTop = linha * CEL_H;
+      const bx = celEsq + pad + Math.random() * (CEL_W - pad * 2);
+      const by = celTop  + pad + Math.random() * (CEL_H - pad * 2);
+
+      // Amplitude X e Y independentes — cria trajetória elíptica, não circular
+      // Baseadas no tamanho da zona ampliada menos o raio do meteoro
+      const zonaW = CEL_W * FATOR_ZONA;
+      const zonaH = CEL_H * FATOR_ZONA;
+      const ampX = Math.max(r * 0.5, (zonaW * 0.5 - r) * (0.55 + Math.random() * 0.45));
+      const ampY = Math.max(r * 0.5, (zonaH * 0.5 - r) * (0.55 + Math.random() * 0.45));
+
+      // Velocidade angular X e Y com razão irracional → nunca repete exatamente
+      // Valores mais altos = movimento mais ágil e imprevisível
+      const velBase = 0.022 + Math.random() * 0.030;
+      const velX = velBase * (0.7 + Math.random() * 0.6);
+      const velY = velBase * (0.7 + Math.random() * 0.6) * (Math.random() < 0.5 ? 1.3 : 0.8);
+
+      // Fases iniciais aleatórias e independentes por eixo
+      const faseX = Math.random() * Math.PI * 2;
+      const faseY = Math.random() * Math.PI * 2;
+
+      // Deriva do centro base: velocidade e direção aleatória
+      // O meteoro lentamente vagueia pela zona (como uma órbita instável)
+      const dxVel = (Math.random() - 0.5) * 0.25;
+      const dyVel = (Math.random() - 0.5) * 0.25;
+
+      // Limites da zona — ampliados para maior liberdade de movimento
+      const limEsq = Math.max(ZONA_X1 + r, celEsq - CEL_W * (FATOR_ZONA - 0.5) * 0.5);
+      const limDir = Math.min(ZONA_X2 - r, celEsq + CEL_W + CEL_W * (FATOR_ZONA - 0.5) * 0.5);
+      const limTop = Math.max(r, celTop - CEL_H * (FATOR_ZONA - 0.5) * 0.5);
+      const limBot = Math.min(H - r, celTop + CEL_H + CEL_H * (FATOR_ZONA - 0.5) * 0.5);
+
+      dados.push({
+        idx, tipo, r,
+        bx, by, x: bx, y: by,
+        faseX, faseY, velX, velY,
+        ampX, ampY,
+        dxVel, dyVel,
+        limEsq, limDir, limTop, limBot,
+        vivo: true, morrendo: false, escala: 1,
+      });
+    }
+  }
+  return dados;
+}
+
+let obstaculos = gerarDadosObstaculos();
+
+// ── Entrada ───────────────────────────────────────────────────────────────────
 document.addEventListener('keydown', e => {
   teclas[e.code] = true;
-
   if (e.code === 'Space') {
     e.preventDefault();
     if (estadoJogo === ESTADO.PARADO) {
-      estadoJogo   = ESTADO.LANCANDO;
-      gancho.x     = PERS_X + PERS_W;
-      gancho.y     = persY + PERS_H / 2;
-      pegou        = false;
-      obsCapturado = null;
+      estadoJogo = ESTADO.LANCANDO;
+      gancho.x   = PERS_X + PERS_TAM;
+      gancho.y   = persY + PERS_TAM / 2;
+      pegou = false; obsCapturado = null;
     }
     if (estadoJogo === ESTADO.GAMEOVER) reiniciarJogo();
   }
@@ -206,18 +242,22 @@ document.addEventListener('keydown', e => {
 });
 document.addEventListener('keyup', e => { teclas[e.code] = false; });
 
-// ─── Reiniciar ────────────────────────────────────────────────────────────────
+// ── Reiniciar ─────────────────────────────────────────────────────────────────
 function reiniciarJogo() {
   vidas = 3;
   renderizarVidas(vidas);
-  obstaculos = gerarObstaculos();
+  obstaculos = gerarDadosObstaculos();
+  elMeteoros.forEach(el => {
+    el.style.display = ''; el.style.opacity = '1'; el.style.transform = '';
+  });
   alvo = criarAlvo();
-  persY = CY - PERS_H / 2;
+  elAlvo.style.display = '';
+  persY = CY - PERS_TAM / 2;
   estadoJogo = ESTADO.PARADO;
-  document.getElementById('gameover').classList.remove('visivel');
+  elGameover.classList.remove('visivel');
 }
 
-// ─── Partículas de efeito ─────────────────────────────────────────────────────
+// ── Partículas ────────────────────────────────────────────────────────────────
 function criarParticulas(x, y, cor, n = 14) {
   for (let i = 0; i < n; i++) {
     const a = (Math.PI * 2 / n) * i;
@@ -225,24 +265,30 @@ function criarParticulas(x, y, cor, n = 14) {
       x, y,
       vx: Math.cos(a) * (2 + Math.random() * 4),
       vy: Math.sin(a) * (2 + Math.random() * 4),
-      vida: 1, cor,
-      tam: 3 + Math.random() * 6,
+      vida: 1, cor, tam: 3 + Math.random() * 6,
     });
   }
 }
 
-// ─── Limitar obstáculo dentro da zona ────────────────────────────────────────
-function limitarObs(o) {
-  const esq = ZONA_X1 + o.r + 2;
-  const dir = ZONA_X2 - o.r - 2;
-  const top = o.r + 2;
-  const bot = H - o.r - 2;
-  o.x = Math.max(esq, Math.min(dir, o.x));
-  o.y = Math.max(top, Math.min(bot, o.y));
+// ── Lógica dos meteoros ───────────────────────────────────────────────────────
+// Mantém o centro base dentro dos limites da zona (deriva não sai da zona)
+function limitarCentroBase(o) {
+  const margem = o.r + 4;
+  o.bx = Math.max(o.limEsq + margem, Math.min(o.limDir - margem, o.bx));
+  o.by = Math.max(o.limTop + margem, Math.min(o.limBot - margem, o.by));
+  // Inverte a deriva ao bater nos limites
+  if (o.bx <= o.limEsq + margem || o.bx >= o.limDir - margem) o.dxVel *= -1;
+  if (o.by <= o.limTop + margem || o.by >= o.limBot - margem) o.dyVel *= -1;
 }
 
-// Separa obstáculos que se sobrepõem
-function separarObstaculos() {
+// Garante que a posição calculada não ultrapasse os limites da zona
+function limitarPosicao(o) {
+  o.x = Math.max(o.limEsq, Math.min(o.limDir, o.x));
+  o.y = Math.max(o.limTop, Math.min(o.limBot, o.y));
+}
+
+// Resolve sobreposição entre meteoros (empurrão mínimo, sem sair da zona)
+function separarMeteoros() {
   const vivos = obstaculos.filter(o => o.vivo && !o.morrendo);
   for (let i = 0; i < vivos.length; i++) {
     for (let j = i + 1; j < vivos.length; j++) {
@@ -250,50 +296,66 @@ function separarObstaculos() {
       const dx = b.x - a.x, dy = b.y - a.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
       const minD = a.r + b.r + 4;
-      if (dist < minD && dist > 0) {
-        const empurrao = (minD - dist) / 2;
+      if (dist < minD && dist > 0.1) {
+        const emp = (minD - dist) / 2;
         const nx = dx / dist, ny = dy / dist;
-        a.x -= nx * empurrao; a.y -= ny * empurrao;
-        b.x += nx * empurrao; b.y += ny * empurrao;
-        limitarObs(a); limitarObs(b);
+        a.x -= nx * emp; a.y -= ny * emp;
+        b.x += nx * emp; b.y += ny * emp;
+        limitarPosicao(a); limitarPosicao(b);
       }
     }
   }
 }
 
-// Atualiza posição de cada obstáculo
-function atualizarObstaculos() {
+function atualizarMeteoros() {
   for (const o of obstaculos) {
     if (!o.vivo) continue;
+
     if (o.morrendo) {
       o.escala -= 0.07;
-      if (o.escala <= 0) { o.vivo = false; o.morrendo = false; }
+      const el = elMeteoros[o.idx];
+      el.style.opacity = Math.max(0, o.escala);
+      if (o.escala <= 0) { o.vivo = false; o.morrendo = false; el.style.display = 'none'; }
       continue;
     }
-    if (o === obsCapturado) continue;
-    o.fase += o.vel;
-    if (o.modo === 'cimabaixo') {
-      o.x = o.bx;
-      o.y = o.by + Math.sin(o.fase) * o.amp;
-    } else if (o.modo === 'ladolado') {
-      o.x = o.bx + Math.sin(o.fase) * o.amp;
-      o.y = o.by;
-    } else {
-      o.x = o.bx + Math.cos(o.fase) * o.amp * 0.65;
-      o.y = o.by + Math.sin(o.fase) * o.amp * 0.65;
-    }
-    limitarObs(o);
+
+    if (o === obsCapturado) { posicionarMeteoro(o); continue; }
+
+    // Avança as fases X e Y independentemente
+    o.faseX += o.velX;
+    o.faseY += o.velY;
+
+    // Centro base deriva lentamente pela zona (movimento de vagabundagem)
+    o.bx += o.dxVel;
+    o.by += o.dyVel;
+    limitarCentroBase(o);
+
+    // Posição = centro base + oscilação elíptica (Lissajous)
+    // Eixos X e Y têm amplitudes e velocidades diferentes → trajetória sempre nova
+    o.x = o.bx + Math.cos(o.faseX) * o.ampX;
+    o.y = o.by + Math.sin(o.faseY) * o.ampY;
+
+    limitarPosicao(o);
+    posicionarMeteoro(o);
   }
-  separarObstaculos();
+  separarMeteoros();
 }
 
-// Verifica se o gancho tocou algum obstáculo
-function checarGanchoVsObstaculos() {
+function posicionarMeteoro(o) {
+  const el  = elMeteoros[o.idx];
+  const tam = o.r * 2;
+  el.style.left   = (o.x - o.r) + 'px';
+  el.style.top    = (o.y - o.r) + 'px';
+  el.style.width  = tam + 'px';
+  el.style.height = tam + 'px';
+}
+
+function checarGanchoVsMeteoros() {
   if (estadoJogo !== ESTADO.LANCANDO) return;
   for (const o of obstaculos) {
     if (!o.vivo || o.morrendo) continue;
     const dx = gancho.x - o.x, dy = gancho.y - o.y;
-    if (Math.sqrt(dx * dx + dy * dy) < o.r + 8) {
+    if (Math.sqrt(dx * dx + dy * dy) < o.r) {
       obsCapturado = o;
       criarParticulas(gancho.x, gancho.y, '#E24B4A');
       estadoJogo = ESTADO.RETRAINDO;
@@ -302,37 +364,43 @@ function checarGanchoVsObstaculos() {
   }
 }
 
-// ─── Atualização por frame ───────────────────────────────────────────────────
+// ── Atualização por frame ─────────────────────────────────────────────────────
 function atualizar() {
   moverFundo();
   if (estadoJogo === ESTADO.GAMEOVER) return;
 
-  // Mover personagem
-  if (teclas['ArrowUp'])   persY = Math.max(0,        persY - PERS_VEL);
-  if (teclas['ArrowDown']) persY = Math.min(H - PERS_H, persY + PERS_VEL);
+  if (teclas['ArrowUp'])   persY = Math.max(0,            persY - PERS_VEL);
+  if (teclas['ArrowDown']) persY = Math.min(H - PERS_TAM, persY + PERS_VEL);
 
-  atualizarObstaculos();
+  elPersonagem.style.left   = PERS_X + 'px';
+  elPersonagem.style.top    = persY  + 'px';
+  elPersonagem.style.width  = PERS_TAM + 'px';
+  elPersonagem.style.height = PERS_TAM + 'px';
+
+  atualizarMeteoros();
   if (flashVermelho > 0) flashVermelho--;
 
-  // Mover alvo em zigue-zague
   if (!alvo.capturado) {
     alvo.fase += VEL_ZZ;
     alvo.x    += alvo.vx;
     alvo.y     = CY + Math.sin(alvo.fase) * AMPLITUDE_ZZ;
-    const col = Math.floor(alvo.x / LARG_COLUNA);
-    if (alvo.vx > 0 && col >= COL_MAX) { alvo.x = COL_MAX * LARG_COLUNA; alvo.vx = -ALVO_VX; }
-    if (alvo.vx < 0 && col <= COL_MIN) { alvo.x = COL_MIN * LARG_COLUNA; alvo.vx =  ALVO_VX; }
+    const col = Math.floor(alvo.x / LARG_COL);
+    if (alvo.vx > 0 && col >= COL_MAX) { alvo.x = COL_MAX * LARG_COL; alvo.vx = -ALVO_VX; }
+    if (alvo.vx < 0 && col <= COL_MIN) { alvo.x = COL_MIN * LARG_COL; alvo.vx =  ALVO_VX; }
   }
 
-  // Lançar gancho
+  elAlvo.style.left    = (alvo.x - ALVO_TAM / 2) + 'px';
+  elAlvo.style.top     = (alvo.y - ALVO_TAM / 2) + 'px';
+  elAlvo.style.width   = ALVO_TAM + 'px';
+  elAlvo.style.height  = ALVO_TAM + 'px';
+  elAlvo.style.display = (estadoJogo === ESTADO.PEGOU && pegou) ? 'none' : '';
+
   if (estadoJogo === ESTADO.LANCANDO) {
     gancho.x += GANCHO_VEL;
-    checarGanchoVsObstaculos();
-
-    // Verificar colisão com alvo
+    checarGanchoVsMeteoros();
     if (estadoJogo === ESTADO.LANCANDO && !pegou) {
       const dx = gancho.x - alvo.x, dy = gancho.y - alvo.y;
-      if (!alvo.capturado && Math.sqrt(dx * dx + dy * dy) < ALVO_TAM / 2 + 9) {
+      if (!alvo.capturado && Math.sqrt(dx * dx + dy * dy) < ALVO_TAM / 2) {
         pegou = true; alvo.capturado = true;
         criarParticulas(gancho.x, gancho.y, '#EF9F27');
         estadoJogo = ESTADO.RETRAINDO;
@@ -341,35 +409,30 @@ function atualizar() {
     if (gancho.x > W - 10) estadoJogo = ESTADO.RETRAINDO;
   }
 
-  // Retrair gancho
   if (estadoJogo === ESTADO.RETRAINDO) {
     gancho.x -= RETRAIR_VEL;
     if (obsCapturado) { obsCapturado.x = gancho.x; obsCapturado.y = gancho.y; }
     if (pegou)        { alvo.x = gancho.x; alvo.y = gancho.y; }
 
-    if (gancho.x <= PERS_X + PERS_W) {
-      gancho.x = PERS_X + PERS_W;
-      gancho.y = persY + PERS_H / 2;
+    if (gancho.x <= PERS_X + PERS_TAM) {
+      gancho.x = PERS_X + PERS_TAM;
+      gancho.y = persY + PERS_TAM / 2;
 
       if (pegou) {
-        // Acertou o alvo — ponto
         estadoJogo = ESTADO.PEGOU;
-        criarParticulas(PERS_X + PERS_W, persY + PERS_H / 2, '#5DCAA5');
+        criarParticulas(PERS_X + PERS_TAM, persY + PERS_TAM / 2, '#5DCAA5');
         setTimeout(() => { pegou = false; alvo = criarAlvo(); estadoJogo = ESTADO.PARADO; }, 700);
-
       } else if (obsCapturado) {
-        // Acertou obstáculo — perde vida e obstáculo some
         vidas--;
         renderizarVidas(Math.max(0, vidas));
         flashVermelho = 45;
-        criarParticulas(PERS_X + PERS_W, persY + PERS_H / 2, '#E24B4A', 20);
+        criarParticulas(PERS_X + PERS_TAM, persY + PERS_TAM / 2, '#E24B4A', 20);
         obsCapturado.morrendo = true;
         obsCapturado.escala   = 1;
         obsCapturado = null;
-
         if (vidas <= 0) {
           estadoJogo = ESTADO.GAMEOVER;
-          document.getElementById('gameover').classList.add('visivel');
+          elGameover.classList.add('visivel');
         } else {
           estadoJogo = ESTADO.PENALIDADE;
           setTimeout(() => { estadoJogo = ESTADO.PARADO; }, 600);
@@ -380,139 +443,48 @@ function atualizar() {
     }
   }
 
-  // Reposicionar gancho quando parado
   if (estadoJogo !== ESTADO.LANCANDO && estadoJogo !== ESTADO.RETRAINDO) {
-    gancho.x = PERS_X + PERS_W;
-    gancho.y = persY + PERS_H / 2;
+    gancho.x = PERS_X + PERS_TAM;
+    gancho.y = persY + PERS_TAM / 2;
   }
 
-  // Partículas
   particulas = particulas.filter(p => p.vida > 0);
   for (const p of particulas) {
     p.x += p.vx; p.y += p.vy;
-    p.vy += 0.12;
-    p.vida -= 0.038;
-    p.tam  *= 0.97;
+    p.vy += 0.12; p.vida -= 0.038; p.tam *= 0.97;
   }
 }
 
-// ─── Desenhar personagem ──────────────────────────────────────────────────────
-function desenharPersonagem() {
-  const py = persY;
-  if (IMG.personagem.complete && IMG.personagem.naturalWidth) {
-    ctx.drawImage(IMG.personagem, PERS_X, py, PERS_W, PERS_H);
-  } else {
-    // Fallback visual até a imagem carregar
-    ctx.fillStyle = '#534AB7';
-    ctx.beginPath();
-    ctx.roundRect(PERS_X, py, PERS_W, PERS_H, 6);
-    ctx.fill();
-    ctx.fillStyle = '#fff';
-    ctx.font = '10px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('PERS', PERS_X + PERS_W / 2, py + PERS_H / 2);
-  }
-}
-
-// ─── Desenhar corda e gancho ──────────────────────────────────────────────────
-function desenharGancho() {
+// ── Desenho (corda, gancho, partículas) ───────────────────────────────────────
+function desenharCordaGancho() {
   if (estadoJogo !== ESTADO.LANCANDO && estadoJogo !== ESTADO.RETRAINDO) return;
-  const ox = PERS_X + PERS_W;
-  const oy = persY + PERS_H / 2;
+  const ox = PERS_X + PERS_TAM;
+  const oy = persY  + PERS_TAM / 2;
 
-  // Corda
   ctx.strokeStyle = 'rgba(200,195,175,0.85)';
-  ctx.lineWidth = Math.max(1.5, H * 0.004);
+  ctx.lineWidth   = Math.max(1.5, H * 0.004);
   ctx.setLineDash([Math.round(H * 0.014), Math.round(H * 0.008)]);
   ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(gancho.x, gancho.y); ctx.stroke();
   ctx.setLineDash([]);
 
-  // Ponta do gancho
-  const raioGancho = Math.round(H * 0.02);
+  const rg = Math.round(H * 0.02);
   ctx.fillStyle = '#D3D1C7'; ctx.strokeStyle = '#5F5E5A';
   ctx.lineWidth = Math.max(1, H * 0.003);
-  ctx.beginPath(); ctx.arc(gancho.x, gancho.y, raioGancho, 0, Math.PI * 2);
-  ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.arc(gancho.x, gancho.y, rg, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
 
-  // Curva do gancho
   ctx.beginPath();
-  ctx.arc(gancho.x + raioGancho * 0.7, gancho.y + raioGancho * 0.7,
-          raioGancho * 0.55, Math.PI * 0.4, Math.PI * 1.6);
-  ctx.strokeStyle = '#888780';
-  ctx.lineWidth = Math.max(2, H * 0.005);
-  ctx.stroke();
+  ctx.arc(gancho.x + rg * 0.7, gancho.y + rg * 0.7, rg * 0.55, Math.PI * 0.4, Math.PI * 1.6);
+  ctx.strokeStyle = '#888780'; ctx.lineWidth = Math.max(2, H * 0.005); ctx.stroke();
 }
 
-// ─── Desenhar alvo ────────────────────────────────────────────────────────────
-function desenharAlvo() {
-  if (estadoJogo === ESTADO.PEGOU && pegou) return;
-  const tx = alvo.x, ty = alvo.y, ts = ALVO_TAM;
-
-  if (IMG.alvo.complete && IMG.alvo.naturalWidth) {
-    ctx.drawImage(IMG.alvo, tx - ts / 2, ty - ts / 2, ts, ts);
-  } else {
-    ctx.fillStyle = '#EF9F27';
-    ctx.beginPath();
-    ctx.roundRect(tx - ts / 2, ty - ts / 2, ts, ts, 6);
-    ctx.fill();
-    ctx.fillStyle = '#FAC775';
-    ctx.font = `bold ${Math.round(ts * 0.28)}px sans-serif`;
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText('ALVO', tx, ty);
-  }
-}
-
-// ─── Desenhar obstáculos ──────────────────────────────────────────────────────
-function desenharObstaculos() {
-  for (const o of obstaculos) {
-    if (!o.vivo) continue;
-    const s = o.morrendo ? o.escala : 1;
-
-    ctx.save();
-    ctx.translate(o.x, o.y);
-    ctx.scale(s, s);
-    ctx.globalAlpha = o.morrendo ? o.escala : 1;
-
-    // Recorte circular
-    ctx.beginPath(); ctx.arc(0, 0, o.r, 0, Math.PI * 2); ctx.clip();
-
-    if (IMG.obstaculo.complete && IMG.obstaculo.naturalWidth) {
-      ctx.drawImage(IMG.obstaculo, -o.r, -o.r, o.r * 2, o.r * 2);
-    } else {
-      ctx.fillStyle = '#7F77DD';
-      ctx.beginPath(); ctx.arc(0, 0, o.r, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#fff';
-      ctx.font = `bold ${Math.round(o.r * 0.65)}px sans-serif`;
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText('OBS', 0, 0);
-    }
-
-    ctx.restore();
-
-    // Borda do círculo (fora do clip)
-    ctx.save();
-    ctx.translate(o.x, o.y);
-    ctx.scale(s, s);
-    ctx.globalAlpha = o.morrendo ? o.escala : 1;
-    ctx.strokeStyle = 'rgba(255,255,255,0.7)';
-    ctx.lineWidth = Math.max(1, H * 0.003);
-    ctx.beginPath(); ctx.arc(0, 0, o.r, 0, Math.PI * 2); ctx.stroke();
-    ctx.restore();
-  }
-}
-
-// ─── Desenhar partículas ─────────────────────────────────────────────────────
 function desenharParticulas() {
   for (const p of particulas) {
-    ctx.globalAlpha = p.vida;
-    ctx.fillStyle   = p.cor;
+    ctx.globalAlpha = p.vida; ctx.fillStyle = p.cor;
     ctx.beginPath(); ctx.arc(p.x, p.y, p.tam, 0, Math.PI * 2); ctx.fill();
   }
   ctx.globalAlpha = 1;
 }
 
-// ─── Efeitos de flash ─────────────────────────────────────────────────────────
 function desenharFlash() {
   if (flashVermelho > 0) {
     ctx.fillStyle = `rgba(226,74,74,${0.2 * (flashVermelho / 45)})`;
@@ -520,22 +492,13 @@ function desenharFlash() {
   }
 }
 
-// ─── Desenho principal por frame ─────────────────────────────────────────────
 function desenhar() {
   ctx.clearRect(0, 0, W, H);
-  desenharObstaculos();
-  desenharAlvo();
-  desenharGancho();
-  desenharPersonagem();
+  desenharCordaGancho();
   desenharParticulas();
   desenharFlash();
 }
 
-// ─── Loop principal ───────────────────────────────────────────────────────────
-function loop() {
-  atualizar();
-  desenhar();
-  requestAnimationFrame(loop);
-}
-
+// ── Loop ──────────────────────────────────────────────────────────────────────
+function loop() { atualizar(); desenhar(); requestAnimationFrame(loop); }
 loop();
