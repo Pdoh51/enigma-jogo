@@ -1,15 +1,19 @@
-/* Reset */
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+/* Reset geral */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
 
-/* Corpo: preto, sem scroll */
+/* Corpo ocupa a tela inteira, sem scroll */
 body {
-  background: #000;
+  background: #0a0010;
   overflow: hidden;
   font-family: 'Segoe UI', system-ui, sans-serif;
   user-select: none;
 }
 
-/* Container que ocupa a tela toda */
+/* Container raiz fixo na viewport */
 #tela {
   position: fixed;
   inset: 0;
@@ -17,7 +21,8 @@ body {
   height: 100vh;
 }
 
-/* Fundo em movimento — camada mais baixa */
+/* ── Fundo em loop ─────────────────────────────────────────────────────────── */
+/* Contém as duas cópias do fundo que alternam */
 #fundo {
   position: absolute;
   inset: 0;
@@ -25,67 +30,175 @@ body {
   z-index: 0;
 }
 
-/* Cada cópia do fundo ocupa a tela inteira em altura */
+/*
+  Cada cópia do fundo.
+  width: 100vw  → garante que cubra a tela inteira sem faixa preta.
+  object-fit: cover → escala sem distorção para preencher o espaço.
+  O JS controla apenas o left para criar o efeito de loop.
+*/
 .fundo-img {
   position: absolute;
   top: 0;
+  width: 100vw;
   height: 100%;
   object-fit: cover;
+  object-position: center;
   pointer-events: none;
 }
 
-/* Canvas transparente sobre o fundo */
-#canvas {
+/* ── Personagem ────────────────────────────────────────────────────────────── */
+/* Tamanho base 14vh; JS define left/top a cada frame */
+#personagem {
   position: absolute;
-  inset: 0;
-  z-index: 1;
-  display: block;
-  width: 100%;
-  height: 100%;
+  z-index: 3;
+  width: 24vh;
+  height: 24vh;
+  object-fit: contain;
+  image-rendering: pixelated;
+  pointer-events: none;
+  /* transform-origin centrado para escalar de dentro para fora */
+  transform-origin: center center;
 }
 
-/* Vidas — canto superior direito, sem fundo, sem borda */
+/* ── Alvo (engrenagem) ─────────────────────────────────────────────────────── */
+/* Tamanho base 11vh; JS define left/top a cada frame */
+#alvo {
+  position: absolute;
+  z-index: 3;
+  width: 10vh;
+  height: 10vh;
+  object-fit: contain;
+  image-rendering: pixelated;
+  pointer-events: none;
+  /* Rotação contínua para parecer que a engrenagem gira */
+  animation: girar 4s linear infinite;
+}
+
+@keyframes girar {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* ── Contêiner dos meteoros ────────────────────────────────────────────────── */
+/* Cobre a tela inteira; meteoros são posicionados absolutamente dentro dele */
+#obstaculos {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+}
+
+/* Base de todos os meteoros */
+.meteoro {
+  position: absolute;
+  object-fit: contain;
+  image-rendering: pixelated;
+  pointer-events: none;
+  /* Suave rotação para dar vida às rochas */
+  animation: tumble 8s linear infinite;
+  transform-origin: center center;
+}
+
+/* Meteoro pequeno — raio de colisão ≈ 3.5vh (7vh ÷ 2) */
+.meteoro-p {
+  width: 18vh;
+  height: 18vh;
+  animation-duration: 10s;
+}
+
+/* Meteoro médio — raio de colisão ≈ 5vh (10vh ÷ 2) */
+.meteoro-m {
+  width: 21vh;
+  height: 21vh;
+  animation-duration: 14s;
+}
+
+/* Meteoro grande — raio de colisão ≈ 7vh (14vh ÷ 2) */
+.meteoro-g {
+  width: 27vh;
+  height: 27vh;
+  animation-duration: 18s;
+}
+
+/* Cada meteoro gira em velocidade e direção levemente diferente */
+.meteoro[data-idx="0"]  { animation-duration: 11s; }
+.meteoro[data-idx="1"]  { animation-duration: 9s;  animation-direction: reverse; }
+.meteoro[data-idx="2"]  { animation-duration: 13s; }
+.meteoro[data-idx="3"]  { animation-duration: 8s;  animation-direction: reverse; }
+.meteoro[data-idx="4"]  { animation-duration: 12s; }
+.meteoro[data-idx="5"]  { animation-duration: 15s; animation-direction: reverse; }
+.meteoro[data-idx="6"]  { animation-duration: 17s; }
+.meteoro[data-idx="7"]  { animation-duration: 13s; animation-direction: reverse; }
+.meteoro[data-idx="8"]  { animation-duration: 16s; }
+.meteoro[data-idx="9"]  { animation-duration: 14s; animation-direction: reverse; }
+.meteoro[data-idx="10"] { animation-duration: 20s; animation-direction: reverse; }
+.meteoro[data-idx="11"] { animation-duration: 22s; }
+.meteoro[data-idx="12"] { animation-duration: 19s; animation-direction: reverse; }
+.meteoro[data-idx="13"] { animation-duration: 24s; }
+.meteoro[data-idx="14"] { animation-duration: 21s; animation-direction: reverse; }
+
+@keyframes tumble {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* ── Vidas ─────────────────────────────────────────────────────────────────── */
+/* Canto superior direito, sem fundo, sem borda */
 #vidas {
   position: absolute;
   top: 20px;
   right: 20px;
-  z-index: 2;
+  z-index: 5;
   display: flex;
-  gap: 8px;
+  gap: 10px;
   align-items: center;
+  pointer-events: none;
 }
 
-/* Cada coração */
+/* Cada engrenagem de vida */
 #vidas img {
-  width: 40px;
-  height: 40px;
+  width: 6vh;
+  height: 6vh;
   object-fit: contain;
   image-rendering: pixelated;
 }
 
-/* Game Over — centralizado, sobre tudo */
+/* ── Canvas (corda + gancho + partículas) ──────────────────────────────────── */
+/* Transparente; fica acima das imagens para a corda aparecer por cima */
+#canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* ── Game Over ─────────────────────────────────────────────────────────────── */
 #gameover {
   display: none;
   position: absolute;
   inset: 0;
   z-index: 10;
-  background: rgba(0, 0, 0, 0.68);
+  background: rgba(0, 0, 0, 0.72);
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 14px;
+  gap: 16px;
+  pointer-events: all;
 }
 
 #gameover.visivel { display: flex; }
 
 #gameover h1 {
-  font-size: clamp(32px, 5vw, 56px);
+  font-size: clamp(32px, 5vw, 60px);
   font-weight: 800;
   color: #E24B4A;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.04em;
 }
 
 #gameover small {
-  font-size: clamp(12px, 1.5vw, 16px);
-  color: rgba(255, 255, 255, 0.4);
+  font-size: clamp(13px, 1.6vw, 18px);
+  color: rgba(255, 255, 255, 0.38);
 }
