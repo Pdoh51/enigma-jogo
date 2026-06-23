@@ -40,21 +40,20 @@ const elMeteoros   = Array.from(document.querySelectorAll('.meteoro'));
 const VEL_FUNDO = 1.5;
 let offsetFundo = 0;
 elFundo2.style.display = '';
+// margem negativa fixa garante sobreposição de 1px independente de cálculos
+elFundo2.style.marginLeft = '-1px';
 
-// Largura real do elemento renderizado — mais preciso que window.innerWidth
-// porque evita discrepâncias por DPR ou scrollbar que causam o gap de 1px
 function larguraFundo() {
-  return elFundo1.getBoundingClientRect().width;
+  return Math.floor(elFundo1.getBoundingClientRect().width);
 }
 
 function moverFundo() {
   const lf = larguraFundo();
   offsetFundo -= VEL_FUNDO;
   if (offsetFundo <= -lf) offsetFundo += lf;
-  // Usa floor para garantir pixels inteiros e evitar subpixel gap
   const x = Math.floor(offsetFundo);
   elFundo1.style.transform = `translateX(${x}px)`;
-  elFundo2.style.transform = `translateX(${x + lf - 1}px)`;
+  elFundo2.style.transform = `translateX(${x + lf}px)`;
 }
 
 // ── Vidas ────────────────────────────────────────────────────────────────────
