@@ -39,11 +39,16 @@ body {
 .fundo-img {
   position: absolute;
   top: 0;
+  left: 0;
+  /* 2px a mais garante que nunca apareça brecha no ponto de junção */
   width: 100vw;
   height: 100%;
   object-fit: cover;
   object-position: center;
   pointer-events: none;
+  /* GPU layer evita artefatos de subpixel entre as duas cópias */
+  will-change: transform;
+  backface-visibility: hidden;
 }
 
 /* ── Personagem ────────────────────────────────────────────────────────────── */
@@ -56,7 +61,6 @@ body {
   object-fit: contain;
   image-rendering: pixelated;
   pointer-events: none;
-  /* transform-origin centrado para escalar de dentro para fora */
   transform-origin: center center;
 }
 
