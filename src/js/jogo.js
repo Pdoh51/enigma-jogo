@@ -41,13 +41,20 @@ const VEL_FUNDO = 1.5;
 let offsetFundo = 0;
 elFundo2.style.display = '';
 
+// Largura real do elemento renderizado — mais preciso que window.innerWidth
+// porque evita discrepâncias por DPR ou scrollbar que causam o gap de 1px
+function larguraFundo() {
+  return elFundo1.getBoundingClientRect().width;
+}
+
 function moverFundo() {
+  const lf = larguraFundo();
   offsetFundo -= VEL_FUNDO;
-  if (offsetFundo <= -W) offsetFundo += W;
+  if (offsetFundo <= -lf) offsetFundo += lf;
+  // Usa floor para garantir pixels inteiros e evitar subpixel gap
   const x = Math.floor(offsetFundo);
-  // fundo1 na posição atual, fundo2 sempre colado à direita sem gap
   elFundo1.style.transform = `translateX(${x}px)`;
-  elFundo2.style.transform = `translateX(${x + W}px)`;
+  elFundo2.style.transform = `translateX(${x + lf - 1}px)`;
 }
 
 // ── Vidas ────────────────────────────────────────────────────────────────────
