@@ -39,15 +39,14 @@ body {
 .fundo-img {
   position: absolute;
   top: 0;
-  left: 0;
-  width: calc(100vw + 1px);
+  width: calc(100vw + 2px);
   height: 100%;
   object-fit: cover;
   object-position: center;
   pointer-events: none;
-  /* GPU layer evita artefatos de subpixel entre as duas cópias */
   will-change: transform;
   backface-visibility: hidden;
+  image-rendering: pixelated;
 }
 
 /* ── Personagem ────────────────────────────────────────────────────────────── */
@@ -201,10 +200,6 @@ body {
   letter-spacing: 0.04em;
 }
 
-#gameover small {
-  font-size: clamp(13px, 1.6vw, 18px);
-  color: rgba(255, 255, 255, 0.38);
-}
 #gameover small {
   font-size: clamp(13px, 1.6vw, 18px);
   color: rgba(255, 255, 255, 0.38);
