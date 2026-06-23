@@ -39,14 +39,15 @@ const elMeteoros   = Array.from(document.querySelectorAll('.meteoro'));
 // ── Fundo em loop ────────────────────────────────────────────────────────────
 const VEL_FUNDO = 1.5;
 let offsetFundo = 0;
-elFundo1.style.left = '0px';
-elFundo2.style.left = W + 'px';
+elFundo2.style.display = '';
 
 function moverFundo() {
   offsetFundo -= VEL_FUNDO;
   if (offsetFundo <= -W) offsetFundo += W;
-  elFundo1.style.left = offsetFundo + 'px';
-  elFundo2.style.left = (offsetFundo + W) + 'px';
+  const x = Math.floor(offsetFundo);
+  // fundo1 na posição atual, fundo2 sempre colado à direita sem gap
+  elFundo1.style.transform = `translateX(${x}px)`;
+  elFundo2.style.transform = `translateX(${x + W}px)`;
 }
 
 // ── Vidas ────────────────────────────────────────────────────────────────────
