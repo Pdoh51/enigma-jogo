@@ -103,22 +103,22 @@ body {
 
 /* Meteoro pequeno — raio de colisão ≈ 3.5vh (7vh ÷ 2) */
 .meteoro-p {
-  width: 18vh;
-  height: 18vh;
+  width: 15vh;
+  height: 15vh;
   animation-duration: 10s;
 }
 
 /* Meteoro médio — raio de colisão ≈ 5vh (10vh ÷ 2) */
 .meteoro-m {
-  width: 21vh;
-  height: 21vh;
+  width: 19vh;
+  height: 19vh;
   animation-duration: 14s;
 }
 
 /* Meteoro grande — raio de colisão ≈ 7vh (14vh ÷ 2) */
 .meteoro-g {
-  width: 27vh;
-  height: 27vh;
+  width: 23vh;
+  height: 23vh;
   animation-duration: 18s;
 }
 
